@@ -1,3 +1,4 @@
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.jeadyx.modbus/simple-modbus-master.svg)](https://central.sonatype.com/artifact/io.github.jeadyx.modbus/simple-modbus-master)
 Simple Modbus Master for Android  
 ---
 This is a simple Modbus Master for Android. It can be used to read and write data to a Modbus slave.  

@@ -35,4 +35,4 @@ jeadyx-serialport = { group = "io.github.jeadyx", name = "serialport", version.r
 android-application = { id = "com.android.application", version.ref = "agp" }
 jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 android-library = { id = "com.android.library", version.ref = "agp" }
-jeadyx-sonatype-uploader = { id = "io.github.jeadyx.sonatype-uploader", version = "1.0"}
+jeadyx-sonatype-uploader = { id = "io.github.jeadyx.sonatype-uploader", version = "2.7"}

@@ -9,7 +9,7 @@ import kotlin.experimental.and
 
 object SimpleModbus{
     private val TAG = "SimpleModbus"
-    private lateinit var serialPort: SerialPortController
+    lateinit var serialPort: SerialPortController
     private var readTimeout: Long = 0
 
     /**
@@ -25,6 +25,14 @@ object SimpleModbus{
             SimpleModbus.readTimeout = readTimeout
         }
         return this
+    }
+
+    /**
+     * clear serialport buff
+     * @return cleared buffer size
+     */
+    fun clearCache(): Int{
+        return serialPort.clearCache()
     }
 
     /**
@@ -191,12 +199,12 @@ object SimpleModbus{
      * @sample SimpleModbusSample.sampleWrite3Registers
      * @sample SimpleModbusSample.sampleRead5Register
      */
+    @Synchronized
     fun write(request: ByteArray, timeout: Long=-1, onResponse: (response: SimpleModbusResponse)->Unit){
         val requestTime = LocalDateTime.now()
         SerialPortController.write(request)
-        SerialPortController.readUntilTimeout(timeout.takeIf { it > 0 }
-            ?: readTimeout) { data, size ->
-            if (size != -1) {
+        SerialPortController.readUntilTimeout(timeout.takeIf { it > 0 } ?: readTimeout, request) { data, size ->
+            if (size > 0) {
                 val resData = data.copyOfRange(0, size)
                 val validRes = validateResponse(request, resData)
                 if (validRes != SimpleModbusExceptionCode.NoError) {

@@ -93,4 +93,57 @@ object SerialPortController {
             }
         }
     }
+
+//    @Synchronized
+    fun readUntilTimeout(timeout: Long, request: ByteArray, onReadData: (data: ByteArray, size: Int)->Unit){
+        var buffer = byteArrayOf()
+        var len = 0
+        val startTime = System.currentTimeMillis()
+        while (true) {
+            if (System.currentTimeMillis() - startTime > timeout) {
+                onReadData(byteArrayOf(), -1)
+                break
+            }
+            if(inputStream.available()>0) {
+                val bufferTmp = ByteArray(512)
+                len = inputStream.read(bufferTmp, 0, 2)
+                buffer += bufferTmp.slice(0 until len)
+                when (bufferTmp[1]) {
+                    0x03.toByte() -> {
+                        len = inputStream.read(bufferTmp, 0, 1)
+                        buffer += bufferTmp.slice(0 until len)
+                        val frameSize = bufferTmp[0].let {
+                            if (it < 0) it + 256 else it.toInt()
+                        }
+                        len = inputStream.read(bufferTmp, 0, frameSize + 2)
+                        buffer += bufferTmp.slice(0 until len)
+                    }
+
+                    0x10.toByte() -> {
+                        len = inputStream.read(bufferTmp, 0, 6)
+                        buffer += bufferTmp.slice(0 until len)
+                    }
+
+                    (request[1] + 0x80).toByte() -> {
+                        len = inputStream.read(bufferTmp, 0, 3)
+                        buffer += bufferTmp.slice(0 until len)
+                    }
+                }
+                if (len >= 3 && request.slice(0..1) == buffer.slice(0..1)) {
+                    onReadData(buffer, buffer.size)
+                    break
+                }
+            }
+        }
+    }
+
+    fun clearCache(): Int{
+        val buffer = ByteArray(4096)
+        Log.d(TAG, "clearCache: ${inputStream.available()}")
+        if(inputStream.available()>0){
+            return inputStream.read(buffer)
+        }else{
+            return -1
+        }
+    }
 }

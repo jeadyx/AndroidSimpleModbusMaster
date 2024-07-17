@@ -1,12 +1,11 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.jetbrains.kotlin.android)
-    `maven-publish`
-    signing
+    id("org.jetbrains.dokka") version "1.9.20" apply false
     alias(libs.plugins.jeadyx.sonatype.uploader) apply false
 }
-group = "io.github.jeadyx.modbus"
-version = "1.0"
+group = "io.github.jeadyx"
+version = "1.2"
 description = "simple modbus master for android"
 android {
     namespace = "com.jeady.simple_modbus_master"

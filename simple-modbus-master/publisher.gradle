@@ -1,68 +1,38 @@
-apply plugin: 'maven-publish'
-apply plugin: 'signing'
+apply plugin: 'org.jetbrains.dokka'
 apply plugin: 'io.github.jeadyx.sonatype-uploader'
 
-tasks.register('sourceJar', Jar) {
-    from android.sourceSets.main.java.srcDirs
-    archiveClassifier = 'sources'
-}
-
-tasks.register('javadocJar', Jar) {
-    from android.sourceSets.main.java.srcDirs
-    archiveClassifier = 'javadoc'
-}
-
-publishing {
-    publications {
-        maven(MavenPublication) {
-            artifactId = project.name
-            artifacts {
-                artifact sourceJar
-                artifact javadocJar
-                artifact 'build/outputs/aar/simple-modbus-master-release.aar'
-            }
-            pom {
-                name='Simple Modbus Master'
-                packaging='aar'
-                description='modebus master for android'
-                url='https://github.com/jeadyx/AndroidSimpleModbusMaster.git'
-
-                scm {
-                    connection='https://github.com/jeadyx/AndroidSimpleModbusMaster.git'
-                    developerConnection='https://github.com/jeadyx/AndroidSimpleModbusMaster.git'
-                    url='https://github.com/jeadyx/AndroidSimpleModbusMaster.git'
-                }
-
-                licenses {
-                    license {
-                        name='The Apache License, Version 2.0'
-                        url='http://www.apache.org/licenses/LICENSE-2.0.txt'
-                    }
-                }
-
-                developers {
-                    developer {
-                        id='jlibrary'
-                        name='Jeady'
-                        email='jeadyx@outlook.com'
-                    }
-                }
-            }
-        }
-    }
-    repositories {
-        maven {
-            name = 'projectRepo'
-            url = layout.buildDirectory.dir("repo")
-        }
-    }
-}
 sonatypeUploader {
-    bundleName = 'AndroidSimpleModbusMaster-' + version
-    dir = layout.buildDirectory.dir("repo/io").get().asFile.path
     tokenName = tokenUsername
     tokenPasswd = tokenPassword
-}
-signing {
-    sign publishing.publications.maven
+    pom = {
+        it.name='Simple Modbus Master'
+        it.packaging='aar'
+        it.description='modebus master for android'
+        it.url='https://github.com/jeadyx/AndroidSimpleModbusMaster.git'
+        it.scm {
+            connection='https://github.com/jeadyx/AndroidSimpleModbusMaster.git'
+            developerConnection='https://github.com/jeadyx/AndroidSimpleModbusMaster.git'
+            url='https://github.com/jeadyx/AndroidSimpleModbusMaster.git'
+        }
+        it.licenses {
+            license {
+                name='The Apache License, Version 2.0'
+                url='http://www.apache.org/licenses/LICENSE-2.0.txt'
+            }
+        }
+        it.developers {
+            developer {
+                id='jlibrary'
+                name='Jeady'
+                email='jeadyx@outlook.com'
+            }
+        }
+        it.withXml {
+            def dependenciesNode = asNode().appendNode('dependencies')
+            def dependencyNode = dependenciesNode.appendNode('dependency')
+            dependencyNode.appendNode('groupId', 'io.github.jeadyx')
+            dependencyNode.appendNode('artifactId', 'serialport')
+            dependencyNode.appendNode('version', 'v3.0')
+        }
+    }
 }

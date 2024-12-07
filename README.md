@@ -8,20 +8,20 @@ This is a simple Modbus Master for Android. It can be used to read and write dat
 * kotlin-dsl  
 `build.gradle.kts`  
 ```kotlin
-implementation("org.github.jeadyx.modbus:simple-modbus-master:1.0")
+implementation("org.github.jeadyx.modbus:simple-modbus-master:1.3")
 ```
 
 * groovy dsl  
 `build.gradle`  
 ```groovy
-implementation 'org.github.jeadyx.modbus:simple-modbus-master:1.0'
+implementation 'org.github.jeadyx.modbus:simple-modbus-master:1.3'
 ```
 
 * version catalog  
 `libs.version.toml`  
 ```text
 [libraries]
-modbus-master = "org.github.jeadyx.modbus:simple-modbus-master:1.0"
+modbus-master = "org.github.jeadyx.modbus:simple-modbus-master:1.3"
 ```
 `build.gradle.kts`  
 ```kotlin
@@ -32,7 +32,7 @@ implementation(libs.modbus.master)
 Sample file: [SimpleModbusSample.kt](app/src/main/java/com/jeady/simplemodbusmaster/ui/modbus/SimpleModbusSample.kt)  
 1. init ModbusMaster instance  
 ```kotlin
-SimpleModbus.init("/dev/ttyS1", 9600)
+val simpleModbus = SimpleModbus("/dev/ttyS1", 9600)
 ```
 
 2. create request  
@@ -43,7 +43,7 @@ val requestRead = SimpleModbus.createCustomReadRequest(0x10, ModbusFunctionCode.
 
 3. send request and get response  
 ```kotlin
-SimpleModbus.write(request) { res ->
+simpleModbus.write(request) { res ->
     Log.d(TAG, "Modbus: response $res")
     if (res.err!= SimpleModbusExceptionCode.NoError) {
         // response error
@@ -57,7 +57,7 @@ SimpleModbus.write(request) { res ->
 You can send modbus command according to the modbus pdu.
 ![pdu.png](app/src/main/res/drawable/pdu.png)
 ```kotlin
-SimpleModbus.write(SimpleModbus.createRequestFromPduString(0x10, "101f0000020001000F")){ res->
+simpleModbus.write(SimpleModbus.createRequestFromPduString(0x10, "101f0000020001000F")){ res->
     Log.d(TAG, "ModbusPdu: response $res")
     if (res.err!= SimpleModbusExceptionCode.NoError) {
         // response error

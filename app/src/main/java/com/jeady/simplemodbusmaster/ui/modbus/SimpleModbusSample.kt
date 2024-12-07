@@ -11,7 +11,7 @@ object SimpleModbusSample {
     private lateinit var simpleModbus: SimpleModbus
     fun init(): SimpleModbusSample {
         if(!SimpleModbusSample::simpleModbus.isInitialized){
-            simpleModbus = SimpleModbus.init("/dev/ttyS7", 1000)
+            simpleModbus = SimpleModbus("/dev/ttyS7", 1000)
         }
         return this
     }
@@ -21,7 +21,7 @@ object SimpleModbusSample {
      */
     @OptIn(ExperimentalStdlibApi::class)
     fun sampleWrite3Registers() {
-        SimpleModbus.write(
+        simpleModbus.write(
             SimpleModbus.createRequestWriteMultipleRegisters(0x10,
                 0x1F00,
                 3,
@@ -44,7 +44,7 @@ object SimpleModbusSample {
      */
     @OptIn(ExperimentalStdlibApi::class)
     fun sampleRead3Register() {
-        SimpleModbus.write(SimpleModbus.createRequestReadHoldingRegisters(0x10, 0x1F00, 3)) { res ->
+        simpleModbus.write(SimpleModbus.createRequestReadHoldingRegisters(0x10, 0x1F00, 3)) { res ->
             Log.d(TAG, "sampleRead3Register: response $res")
             if (res.err!= SimpleModbusExceptionCode.NoError) {
                 // response error
@@ -56,7 +56,7 @@ object SimpleModbusSample {
 
     @OptIn(ExperimentalStdlibApi::class)
     fun sampleWritePdu(pduString: String="101f00000a14000100020003", slaveId: Int=0x10){
-        SimpleModbus.write(SimpleModbus.createRequestFromPduString(slaveId, pduString)){ res->
+        simpleModbus.write(SimpleModbus.createRequestFromPduString(slaveId, pduString)){ res->
             Log.d(TAG, "sampleWritePdu: response $res")
             if (res.err!= SimpleModbusExceptionCode.NoError) {
                 // response error

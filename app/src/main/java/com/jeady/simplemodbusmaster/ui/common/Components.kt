@@ -8,7 +8,7 @@ import androidx.compose.ui.text.style.TextAlign
 
 @Composable
 fun ButtonText(text:String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Button(onClick) {
+    Button(onClick, modifier) {
         Text(text, textAlign = TextAlign.Center)
     }
 }

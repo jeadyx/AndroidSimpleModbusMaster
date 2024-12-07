@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +29,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,8 +44,11 @@ import com.jeady.simple_modbus_master.SimpleModbus
 import com.jeady.simple_modbus_master.SimpleModbusResponse
 import com.jeady.simplemodbusmaster.ui.common.ButtonText
 import com.jeady.simplemodbusmaster.ui.theme.SimpleModbusMasterTheme
+import kotlinx.coroutines.launch
 
 private const val TAG = "MainActivity"
+
+val simpleModbus = SimpleModbus("/dev/ttyS7", 9600, 5000)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,11 +72,11 @@ fun ModbusSample(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var slaveId by remember { mutableStateOf("") }
     var pdu by remember { mutableStateOf("") }
+    val coroutine = rememberCoroutineScope()
     LaunchedEffect(Unit){
-        SimpleModbus.init("/dev/ttyS7", 9600)
         context.getSharedPreferences("modbus", MODE_PRIVATE).apply {
             slaveId = getString("slaveId", "1") ?: ""
-            pdu = getString("pdu", "03 0001 0002") ?: ""
+            pdu = getString("pdu", "") ?: ""
         }
     }
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -78,6 +84,7 @@ fun ModbusSample(modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy(10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            val startAddress by remember { mutableStateOf("0001") }
             Text("以下编辑框均填写十六进制数，如FF(All hex input)", fontSize = 30.sp)
             OutlinedTextField(value = slaveId, onValueChange = {
                 if (it.matches(Regex("[0-9a-f]{0,2}"))) slaveId = it
@@ -87,15 +94,37 @@ fun ModbusSample(modifier: Modifier = Modifier) {
             }, Modifier.fillMaxWidth(), label = { Text("要写入的pdu数据(pdu data)", color= Color.Gray) },
                 suffix = {
                     if(pdu.isNotEmpty()) Icon(Icons.Filled.Clear, "", Modifier.clickable { pdu = "" })
-                })
+                }
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly){
+                Row(verticalAlignment = Alignment.CenterVertically){
+                    val exampleReadPdu by remember { mutableStateOf("03 $startAddress 0001") }
+                    RadioButton(selected = pdu==exampleReadPdu, onClick = {
+                        pdu = exampleReadPdu
+                    })
+                    Text("read example")
+                }
+                Row(verticalAlignment = Alignment.CenterVertically){
+                    val exampleWritePdu by remember { mutableStateOf("10 $startAddress 0001 02 0030") }
+                    RadioButton(selected = pdu==exampleWritePdu, onClick = {
+                        pdu = exampleWritePdu
+                    })
+                    Text("write example")
+                }
+            }
             ButtonText("向 ${(slaveId.ifBlank { "0" }).toInt(16)} 号从机发送请求\n(send command to slave ${(slaveId.ifBlank { "0" }).toInt(16)})") {
-                sendAndGetResponse((slaveId.ifBlank { "0" }).toInt(16), pdu.replace(" ", ""))
+                coroutine.launch {
+                    response = SimpleModbusResponse()
+                    sendAndGetResponse((slaveId.ifBlank { "0" }).toInt(16), pdu.replace(" ", ""))
+                }
                 // 保存数据
                 context.getSharedPreferences("modbus", MODE_PRIVATE).edit().putString("slaveId", slaveId).putString("pdu", pdu).apply()
             }
             Text("请 求(request)：\t${response.request?.toHexString()?.replace(Regex("(..)"), "$1 ")}",
                 Modifier.align(Alignment.Start), fontFamily = FontFamily.Monospace)
-            Text("响应(response)：\t${response.response?.toHexString()?.replace(Regex("(..)"), "$1 ")}",
+            Text("响应(response)： \t${response.response?.toHexString()?.replace(Regex("(..)"), "$1 ")}",
+                Modifier.align(Alignment.Start), fontFamily = FontFamily.Monospace)
+            Text("异常(exception)： \t${response.err}",
                 Modifier.align(Alignment.Start), fontFamily = FontFamily.Monospace)
             Spacer(Modifier.height(30.dp))
             Image(painterResource(R.drawable.pdu), "pdu description", Modifier.fillMaxWidth())
@@ -105,7 +134,7 @@ fun ModbusSample(modifier: Modifier = Modifier) {
 
 fun sendAndGetResponse(slaveId: Int, pduString: String) {
     try {
-        SimpleModbus.write(
+        simpleModbus.write(
             SimpleModbus.createRequestFromPduString(slaveId, pduString)
         ) { res ->
             Log.d(TAG, "sampleWrite3Registers: response $res")

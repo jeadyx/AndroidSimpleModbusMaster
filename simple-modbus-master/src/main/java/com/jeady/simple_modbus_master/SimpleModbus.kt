@@ -1,30 +1,23 @@
 package com.jeady.simple_modbus_master
 
-import android.content.Context
-import android.util.Log
 import com.jeady.simple_modbus_master.Util.toTwoByte
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.experimental.and
 
-object SimpleModbus{
-    private val TAG = "SimpleModbus"
-    lateinit var serialPort: SerialPortController
+class SimpleModbus(serialPath: String, baudRate: Int=9600, readTimeout: Long=500){
+    var serialPort: SerialPortController = SerialPortController(serialPath, baudRate)
     private var readTimeout: Long = 0
 
     /**
-     * init modbus, must be called first
+     * get initialized modbus instance, must be called first
      * @param serialPath serial port path, example /dev/ttyS1
      * @param baudRate baud rate, default 9600
      * @param readTimeout get response by the timeout
      * @return SimpleModbus
      */
-    fun init(serialPath: String, baudRate: Int=9600, readTimeout: Long=500): SimpleModbus {
-        if(!SimpleModbus::serialPort.isInitialized){
-            serialPort = SerialPortController.open(serialPath, baudRate)
-            SimpleModbus.readTimeout = readTimeout
-        }
-        return this
+    init{
+        this.readTimeout = readTimeout
     }
 
     /**
@@ -35,159 +28,228 @@ object SimpleModbus{
         return serialPort.clearCache()
     }
 
-    /**
-     * create a custom read request
-     * @param slaveAddress slave address
-     * @param functionCode function code
-     * @param startAddress start address of the register
-     * @param quantity quantity of the register
-     * @return request
-     * @see ModbusFunctionCode; it can be used by "ModbusFunctionCode.ReadHoldingRegisters.value"
-     */
-    fun createCustomReadRequest(slaveAddress: Int, functionCode: Int, startAddress: Int, quantity: Int): ByteArray {
-        val request = ByteArray(6)
-        request[0] = slaveAddress.toByte()
-        request[1] = functionCode.toByte()
-        request[2] = (startAddress shr 8).toByte()
-        request[3] = (startAddress and 0xFF).toByte()
-        request[4] = (quantity shr 8).toByte()
-        request[5] = (quantity and 0xFF).toByte()
-        val crcCode = Util.crc16(request)
-        return request + crcCode
-    }
-
-    /**
-     * create a custom write request
-     * @param slaveAddress slave address
-     * @param functionCode function code
-     * @param startAddress start address of the register
-     * @param data data to write
-     * @return request
-     * @see ModbusFunctionCode; it can be used by "ModbusFunctionCode.ReadHoldingRegisters.value"
-     */
-    fun createCustomWriteRequest(slaveAddress: Int, functionCode: Int, startAddress: Int, quantity: Int, data: ByteArray): ByteArray{
-        val request = ByteArray(7 + quantity*2)
-        request[0] = slaveAddress.toByte()
-        request[1] = functionCode.toByte()
-        request[2] = (startAddress shr 8).toByte()
-        request[3] = (startAddress and 0xFF).toByte()
-        if (quantity > 0xFF) {
+    companion object {
+        /**
+         * create a custom read request
+         * @param slaveAddress slave address
+         * @param functionCode function code
+         * @param startAddress start address of the register
+         * @param quantity quantity of the register
+         * @return request
+         * @see ModbusFunctionCode; it can be used by "ModbusFunctionCode.ReadHoldingRegisters.value"
+         */
+        fun createCustomReadRequest(
+            slaveAddress: Int,
+            functionCode: Int,
+            startAddress: Int,
+            quantity: Int
+        ): ByteArray {
+            val request = ByteArray(6)
+            request[0] = slaveAddress.toByte()
+            request[1] = functionCode.toByte()
+            request[2] = (startAddress shr 8).toByte()
+            request[3] = (startAddress and 0xFF).toByte()
             request[4] = (quantity shr 8).toByte()
             request[5] = (quantity and 0xFF).toByte()
-        }else{
-            request[4] = 0x00
-            request[5] = quantity.toByte()
+            val crcCode = Util.crc16(request)
+            return request + crcCode
         }
-        (quantity*2).let {
-            if(it>0xff){
-                request[6] = 0xff.toByte()
+
+        /**
+         * create a custom write request
+         * @param slaveAddress slave address
+         * @param functionCode function code
+         * @param startAddress start address of the register
+         * @param data data to write
+         * @return request
+         * @see ModbusFunctionCode; it can be used by "ModbusFunctionCode.ReadHoldingRegisters.value"
+         */
+        fun createCustomWriteRequest(
+            slaveAddress: Int,
+            functionCode: Int,
+            startAddress: Int,
+            quantity: Int,
+            data: ByteArray
+        ): ByteArray {
+            val request = ByteArray(7 + quantity * 2)
+            request[0] = slaveAddress.toByte()
+            request[1] = functionCode.toByte()
+            request[2] = (startAddress shr 8).toByte()
+            request[3] = (startAddress and 0xFF).toByte()
+            if (quantity > 0xFF) {
+                request[4] = (quantity shr 8).toByte()
+                request[5] = (quantity and 0xFF).toByte()
+            } else {
+                request[4] = 0x00
+                request[5] = quantity.toByte()
+            }
+            (quantity * 2).let {
+                if (it > 0xff) {
+                    request[6] = 0xff.toByte()
+                } else {
+                    request[6] = it.toByte()
+                }
+            }
+            for (i in 0..<quantity * 2) {
+                request[7 + i] = data.getOrElse(i) { 0 }
+            }
+            val crcCode = Util.crc16(request)
+            return request + crcCode
+        }
+
+        /**
+         * create a custom write request
+         * @param slaveAddress slave address
+         * @param functionCode function code
+         * @param startAddress start address of the register
+         * @param data short data array to write
+         * @return request
+         * @see ModbusFunctionCode; it can be used by "ModbusFunctionCode.ReadHoldingRegisters.value"
+         */
+        fun createCustomWriteRequest(
+            slaveAddress: Int,
+            functionCode: Int,
+            startAddress: Int,
+            data: ShortArray
+        ): ByteArray {
+            val quantity = data.size
+            val request = ByteArray(7 + quantity * 2)
+            request[0] = slaveAddress.toByte()
+            request[1] = functionCode.toByte()
+            request[2] = (startAddress shr 8).toByte()
+            request[3] = (startAddress and 0xFF).toByte()
+            if (quantity > 0xFF) {
+                request[4] = (quantity shr 8).toByte()
+                request[5] = (quantity and 0xFF).toByte()
+            }
+            (quantity * 2).let {
+                if (it > 0xff) {
+                    request[6] = 0xff.toByte()
+                } else {
+                    request[6] = it.toByte()
+                }
+            }
+            for (i in data) {
+                if (i.toInt() > 0xff) {
+                    request[7 + i * 2] = (i.toTwoByte()[0] and 0xFF.toByte())
+                    request[8 + i * 2] = (i.toTwoByte()[1] and 0xFF.toByte())
+                } else {
+                    request[7 + i * 2] = 0x00.toByte()
+                    request[8 + i * 2] = (i.toByte() and 0xFF.toByte())
+                }
+            }
+            val crcCode = Util.crc16(request)
+            return request + crcCode
+        }
+
+        /**
+         * create request for read holding registers
+         * @param slaveAddress slave address
+         * @param startAddress start address of register
+         * @param quantity quantity of registers will reading
+         * @sample SimpleModbusSample.sampleRead3Register
+         */
+        fun createRequestReadHoldingRegisters(
+            slaveAddress: Int,
+            startAddress: Int,
+            quantity: Int
+        ): ByteArray {
+            return createCustomReadRequest(
+                slaveAddress,
+                ModbusFunctionCode.ReadHoldingRegisters.value,
+                startAddress,
+                quantity
+            )
+        }
+
+        /**
+         * create request for write multiple registers
+         * @param slaveAddress slave address
+         * @param startAddress start address of register
+         * @param quantity quantity of registers
+         * @data data byte data to write, its format must be ["high byte", "low byte", "high byte", "low byte",...]
+         * @return request request byte array
+         */
+        fun createRequestWriteMultipleRegisters(
+            slaveAddress: Int,
+            startAddress: Int,
+            quantity: Int,
+            data: ByteArray
+        ): ByteArray {
+            return createCustomWriteRequest(
+                slaveAddress,
+                ModbusFunctionCode.WriteMultipleRegisters.value,
+                startAddress,
+                quantity,
+                data
+            )
+        }
+
+        /**
+         * create request for write multiple registers
+         * @param slaveAddress slave address
+         * @param startAddress register start address
+         * @param quantity quantity of registers
+         * @param data of short array, its size can smaller to quantity, will be filled with 0x00
+         * @return request byte array
+         * @sample SimpleModbusSample.sampleWrite3Registers
+         */
+        fun createRequestWriteMultipleRegisters(
+            slaveAddress: Int,
+            startAddress: Int,
+            quantity: Int,
+            data: ShortArray
+        ): ByteArray {
+            val byteArray = ByteArray(data.size * 2)
+            data.forEachIndexed { idx, short ->
+                val twoByte = short.toTwoByte()
+                byteArray[idx * 2] = twoByte[0] and 0xFF.toByte()
+                byteArray[idx * 2 + 1] = twoByte[1] and 0xFF.toByte()
+            }
+            return createCustomWriteRequest(
+                slaveAddress,
+                ModbusFunctionCode.WriteMultipleRegisters.value,
+                startAddress,
+                quantity,
+                byteArray
+            )
+        }
+
+        /**
+         * create request from pdu hex string
+         * @param slaveAddress slave address
+         * @param pdu pdu hex string
+         * @return request data
+         * @sample SimpleModbusSample.sampleWritePdu
+         */
+        @OptIn(ExperimentalStdlibApi::class)
+        fun createRequestFromPduString(slaveAddress: Int, pdu: String): ByteArray {
+            if (pdu.length < 2) return byteArrayOf()
+            val byteSendNoCrc = byteArrayOf(slaveAddress.toByte()) + pdu.hexToByteArray()
+            val request = byteSendNoCrc + Util.crc16(byteSendNoCrc)
+            return request
+        }
+
+        /**
+         * verify response validate
+         * @param all size response
+         */
+        private fun validateResponse(request: ByteArray, response: ByteArray): SimpleModbusExceptionCode {
+            return if (response.size < 4) { // 长度校验
+                SimpleModbusExceptionCode.InvalidLength
+            }else if(!Util.checkCrc16(response)){ // crc校验
+                SimpleModbusExceptionCode.CrcError
+            }else if(response[1].toUByte().toInt() == request[1]+0x80){ // 错误码校验
+                SimpleModbusExceptionCode.fromInt(response[2].toInt())
             }else{
-                request[6] = it.toByte()
+                SimpleModbusExceptionCode.NoError
             }
         }
-        for(i in 0..<quantity*2){
-            request[7 + i] = data.getOrElse(i) { 0 }
-        }
-        val crcCode = Util.crc16(request)
-        return request + crcCode
-    }
 
-    /**
-     * create a custom write request
-     * @param slaveAddress slave address
-     * @param functionCode function code
-     * @param startAddress start address of the register
-     * @param data short data array to write
-     * @return request
-     * @see ModbusFunctionCode; it can be used by "ModbusFunctionCode.ReadHoldingRegisters.value"
-     */
-    fun createCustomWriteRequest(slaveAddress: Int, functionCode: Int, startAddress: Int, data: ShortArray): ByteArray{
-        val quantity = data.size
-        val request = ByteArray(7 + quantity*2)
-        request[0] = slaveAddress.toByte()
-        request[1] = functionCode.toByte()
-        request[2] = (startAddress shr 8).toByte()
-        request[3] = (startAddress and 0xFF).toByte()
-        if (quantity > 0xFF) {
-            request[4] = (quantity shr 8).toByte()
-            request[5] = (quantity and 0xFF).toByte()
+        fun getPduFromAdu(adu: ByteArray): ByteArray{
+            if(adu.size<4) return byteArrayOf()
+            return adu.copyOfRange(1, adu.size-2)
         }
-        (quantity*2).let {
-            if(it>0xff){
-                request[6] = 0xff.toByte()
-            }else{
-                request[6] = it.toByte()
-            }
-        }
-        for (i in data){
-            if(i.toInt()>0xff){
-                request[7 + i * 2] = (i.toTwoByte()[0] and 0xFF.toByte())
-                request[8 + i * 2] = (i.toTwoByte()[1] and 0xFF.toByte())
-            }else{
-                request[7 + i * 2] = 0x00.toByte()
-                request[8 + i * 2] = (i.toByte() and 0xFF.toByte())
-            }
-        }
-        val crcCode = Util.crc16(request)
-        return request + crcCode
-    }
-
-    /**
-     * create request for read holding registers
-     * @param slaveAddress slave address
-     * @param startAddress start address of register
-     * @param quantity quantity of registers will reading
-     * @sample SimpleModbusSample.sampleRead3Register
-     */
-    fun createRequestReadHoldingRegisters(slaveAddress: Int, startAddress: Int, quantity: Int): ByteArray {
-        return createCustomReadRequest(slaveAddress, ModbusFunctionCode.ReadHoldingRegisters.value, startAddress, quantity)
-    }
-
-    /**
-     * create request for write multiple registers
-     * @param slaveAddress slave address
-     * @param startAddress start address of register
-     * @param quantity quantity of registers
-     * @data data byte data to write, its format must be ["high byte", "low byte", "high byte", "low byte",...]
-     * @return request request byte array
-     */
-    fun createRequestWriteMultipleRegisters(slaveAddress: Int, startAddress: Int, quantity: Int, data: ByteArray): ByteArray {
-        return createCustomWriteRequest(slaveAddress, ModbusFunctionCode.WriteMultipleRegisters.value, startAddress, quantity, data)
-    }
-
-    /**
-     * create request for write multiple registers
-     * @param slaveAddress slave address
-     * @param startAddress register start address
-     * @param quantity quantity of registers
-     * @param data of short array, its size can smaller to quantity, will be filled with 0x00
-     * @return request byte array
-     * @sample SimpleModbusSample.sampleWrite3Registers
-     */
-    fun createRequestWriteMultipleRegisters(slaveAddress: Int, startAddress: Int, quantity: Int, data: ShortArray): ByteArray {
-        val byteArray = ByteArray(data.size*2)
-        data.forEachIndexed{idx, short->
-            val twoByte = short.toTwoByte()
-            byteArray[idx*2] = twoByte[0] and 0xFF.toByte()
-            byteArray[idx*2+1] = twoByte[1] and 0xFF.toByte()
-        }
-        return createCustomWriteRequest(slaveAddress, ModbusFunctionCode.WriteMultipleRegisters.value, startAddress, quantity, byteArray)
-    }
-
-    /**
-     * create request from pdu hex string
-     * @param slaveAddress slave address
-     * @param pdu pdu hex string
-     * @return request data
-     * @sample SimpleModbusSample.sampleWritePdu
-     */
-    @OptIn(ExperimentalStdlibApi::class)
-    fun createRequestFromPduString(slaveAddress: Int, pdu: String): ByteArray{
-        if(pdu.length<2) return byteArrayOf()
-        Log.d(TAG, "createRequestFromPduString: $slaveAddress $pdu")
-        val byteSendNoCrc = byteArrayOf(slaveAddress.toByte()) + pdu.hexToByteArray()
-        val request = byteSendNoCrc + Util.crc16(byteSendNoCrc)
-        return request
     }
 
     /**
@@ -202,8 +264,8 @@ object SimpleModbus{
     @Synchronized
     fun write(request: ByteArray, timeout: Long=-1, onResponse: (response: SimpleModbusResponse)->Unit){
         val requestTime = LocalDateTime.now()
-        SerialPortController.write(request)
-        SerialPortController.readUntilTimeout(timeout.takeIf { it > 0 } ?: readTimeout, request) { data, size ->
+        serialPort.write(request)
+        serialPort.readUntilTimeout(timeout.takeIf { it > 0 } ?: readTimeout, request) { data, size ->
             if (size > 0) {
                 val resData = data.copyOfRange(0, size)
                 val validRes = validateResponse(request, resData)
@@ -233,27 +295,6 @@ object SimpleModbus{
                 )
             }
         }
-    }
-
-    /**
-     * verify response validate
-     * @param all size response
-     */
-    private fun validateResponse(request: ByteArray, response: ByteArray): SimpleModbusExceptionCode {
-        return if (response.size < 4) { // 长度校验
-            SimpleModbusExceptionCode.InvalidLength
-        }else if(!Util.checkCrc16(response)){ // crc校验
-            SimpleModbusExceptionCode.CrcError
-        }else if(response[1].toUByte().toInt() == request[1]+0x80){ // 错误码校验
-            SimpleModbusExceptionCode.fromInt(response[2].toInt())
-        }else{
-            SimpleModbusExceptionCode.NoError
-        }
-    }
-
-    fun getPduFromAdu(adu: ByteArray): ByteArray{
-        if(adu.size<4) return byteArrayOf()
-        return adu.copyOfRange(1, adu.size-2)
     }
 }
 

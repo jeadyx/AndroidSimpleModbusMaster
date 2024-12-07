@@ -7,6 +7,11 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlin.UInt
+import kotlin.collections.dropLast
+import kotlin.collections.takeLast
+import kotlin.collections.toUByteArray
+import kotlin.text.toHexString
 
 private const val TAG = "Util"
 object Util {
@@ -69,17 +74,23 @@ object Util {
     fun Short.toTwoByte(bigEndian: Boolean=true): ByteArray{
         return this.toInt().toTwoByte(bigEndian)
     }
-
+    @OptIn(ExperimentalStdlibApi::class)
+    fun ByteArray.lastTwoByteToUInt(): Int {
+        if (this.size < 2) return -1
+        val lastTwoByte = this.takeLast(2).toByteArray()
+        return lastTwoByte.toHexString().toInt(16)
+    }
     @OptIn(ExperimentalStdlibApi::class)
     fun ByteArray.lastTwoByteToInt(): Int {
         if (this.size < 2) return -1
-        val lastTwoByte = this.takeLast(2)
-        val high = lastTwoByte[0].toInt()
-        val lower = lastTwoByte[1].toInt()
-//        Log.d(
-//            TAG, "lastTwoByteToInt: last two byte ${lastTwoByte.toByteArray().toHexString()}" +
-//                " 解析： $high $lower ${(high shl 8 and 0xff00)} ${lower and 0xff} ${(high shl 8 and 0xff00) or (lower and 0xff)}")
-        return (high shl 8 and 0xff00) or (lower and 0xff)
+        val lastTwoByte = this.takeLast(2).toByteArray()
+        val high = lastTwoByte[0]
+        val lower = lastTwoByte[1]
+        var res = byteArrayOf(high, lower).toHexString().toInt(16)
+        if(high.toInt() < 0){
+            res = -(byteArrayOf(high, lower).toHexString().toInt(16) - 1).xor(0xffff)
+        }
+        return res
     }
     fun UInt.div(divisor: Float): Float {
         return this.toFloat() / divisor

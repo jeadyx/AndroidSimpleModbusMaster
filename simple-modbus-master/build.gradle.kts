@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.jeadyx.sonatype.uploader) apply false
 }
 group = "io.github.jeadyx"
-version = "1.2"
+version = "1.3"
 description = "simple modbus master for android"
 android {
     namespace = "com.jeady.simple_modbus_master"

@@ -2,37 +2,46 @@ package com.jeady.simple_modbus_master
 
 import android.serialport.SerialPort
 import android.util.Log
+import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import kotlin.collections.copyOfRange
+import kotlin.collections.slice
 import kotlin.concurrent.thread
+import kotlin.let
+import kotlin.ranges.until
+import kotlin.run
 
 private const val TAG = "SerialPortController"
-object SerialPortController {
+class SerialPortController(path: String, baudRate: Int=9600) {
     private var sp: SerialPort?=null
     private lateinit var inputStream: InputStream
     private lateinit var outputStream: OutputStream
-    fun open(path: String, baudRate: Int=9600): SerialPortController{
-        sp ?: run {
-            Log.d(TAG, "open: $path $baudRate")
-            sp = SerialPort.newBuilder(path, baudRate).build()
-            inputStream = sp!!.inputStream
-            outputStream = sp!!.outputStream
+    init{
+        sp = SerialPort.newBuilder(path, baudRate).build()
+        sp?.let {
+            inputStream = it.inputStream
+            outputStream = it.outputStream
+        } ?: run{
+            throw IOException("error serial")
         }
-        return this
     }
-    fun open(path: String, baudRate: Int=9600, dataBits: Int=8, stopBits: Int=1, parity: Int=0, flags: Int=0): SerialPortController{
-        sp ?: run {
-            sp = SerialPort
-                .newBuilder(path, baudRate)
-                .dataBits(dataBits)
-                .stopBits(stopBits)
-                .parity(parity)
-                .flags(flags)
-                .build()
-            inputStream = sp!!.inputStream
-            outputStream = sp!!.outputStream
+    constructor(path: String, baudRate: Int=9600, dataBits: Int=8, stopBits: Int=1, parity: Int=0, flags: Int=0) : this(path, baudRate) {
+        sp = SerialPort.newBuilder(path, baudRate)
+            .dataBits(dataBits)
+            .stopBits(stopBits)
+            .parity(parity)
+            .flags(flags)
+            .build()
+        sp?.let {
+            inputStream = it.inputStream
+            outputStream = it.outputStream
+        } ?: run{
+            throw IOException("error serial")
         }
-        return this
+    }
+    fun test(){
+        Log.d(TAG, "test: ${sp?.baudrate}")
     }
 
     fun close(){
@@ -97,7 +106,7 @@ object SerialPortController {
 //    @Synchronized
     fun readUntilTimeout(timeout: Long, request: ByteArray, onReadData: (data: ByteArray, size: Int)->Unit){
         var buffer = byteArrayOf()
-        var len = 0
+        var len: Int
         val startTime = System.currentTimeMillis()
         while (true) {
             if (System.currentTimeMillis() - startTime > timeout) {
